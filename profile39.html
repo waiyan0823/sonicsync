@@ -1,0 +1,111 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NUR SHAZLEEN AZIEM BINTI MAT TAN SALLEH | Profile</title>
+    <style>
+        body { background: #0f0f0f; color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }
+        
+        .profile-card {
+            max-width: 1200px; margin: 40px auto;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(25px);
+            padding: 40px; border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .main-layout { display: flex; gap: 50px; border-bottom: 1px solid #333; padding-bottom: 40px; margin-bottom: 40px; }
+        
+        /* Left Column: Photo & Navigation Buttons */
+        .left-col { width: 280px; text-align: center; display: flex; flex-direction: column; gap: 15px; }
+        .profile-img { width: 250px; height: 250px; border-radius: 20px; border: 4px solid #00d2ff; object-fit: cover; margin: 0 auto; }
+        
+        .nav-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        .btn { padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; text-decoration: none; transition: 0.3s; font-size: 0.9rem; text-align: center; }
+        .btn-back { background: #333; color: white; border: 1px solid #555; }
+        .btn-dashboard { background: #00d2ff; color: white; }
+        .btn-logout { background: #ff4d4d; color: white; }
+        .btn:hover { transform: translateY(-2px); opacity: 0.9; }
+
+        /* Right Column: Information Grid */
+        .right-col { flex-grow: 1; display: flex; flex-direction: column; gap: 20px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        
+        label { color: #00d2ff; font-size: 0.8rem; font-weight: bold; display: block; margin-bottom: 4px; }
+        input, select, textarea { 
+            width: 100%; padding: 10px; border-radius: 8px; border: none; 
+            background: #eee; color: #111; box-sizing: border-box; font-size: 0.95rem;
+        }
+        textarea { height: 60px; resize: none; }
+        .readonly { background: #222; color: #777; cursor: not-allowed; }
+
+        /* Media Row: Document beside Video */
+        .media-row { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+        .media-box { background: rgba(0,0,0,0.3); padding: 25px; border-radius: 20px; border-top: 3px solid #00d2ff; }
+        .preview-content { width: 100%; height: 400px; border-radius: 10px; background: #000; border: none; }
+
+        .update-btn { background: #2ecc71; color: white; padding: 15px; width: 100%; border-radius: 10px; border: none; font-weight: bold; margin-top: 20px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="profile-card">
+    <form method="POST" enctype="multipart/form-data">
+        <div class="main-layout">
+            
+            <div class="left-col">
+                <img src="uploads/1779238408_6082288039423054003.jpg" class="profile-img">
+                
+                
+                <div class="nav-buttons">
+                    <a href="index.php" class="btn btn-back">← Back to Gallery</a>
+                    <a href="metadata.php?id=39" class="btn btn-dashboard">Metadata Dashboard</a>
+                    
+                                            <a href="login.php" class="btn btn-dashboard">Login to Edit</a>
+                                    </div>
+            </div>
+
+            <div class="right-col">
+                <div class="info-grid">
+                    <div><label>Name</label><input type="text" name="fullname" value="NUR SHAZLEEN AZIEM BINTI MAT TAN SALLEH" readonly class="readonly"></div>
+                    <div><label>Matric No</label><input type="text" value="B032410181" class="readonly" readonly></div>
+                    <div><label>Phone</label><input type="text" name="phone" value="01162345861" readonly class="readonly"></div>
+                    <div><label>Group</label>
+                                                <input type="text" value="GW08" class="readonly" readonly>
+                                            </div>
+                </div>
+
+                <div>
+                    <label>Life Motto</label>
+                    <textarea name="life_motto" readonly class="readonly"></textarea>
+                </div>
+
+                <div style="background: rgba(0,210,255,0.05); padding: 20px; border-radius: 12px;">
+                    <label>Audio Submission</label>
+                                            <audio controls src="uploads/1779238408_Becoming Me.mp3" style="width:100%;"></audio>
+                                        
+                                    </div>
+
+                            </div>
+        </div>
+
+        <div class="media-row">
+            <div class="media-box">
+                <label>Document (PDF Viewer)</label>
+                                    <embed src="uploads/1779238408_lab2 (1).pdf" type="application/pdf" class="preview-content">
+                                
+                            </div>
+
+            <div class="media-box">
+                <label>Video Submission</label>
+                                    <video controls src="uploads/1779238408_shazleen_b032410181r.mp4" class="preview-content"></video>
+                
+                            </div>
+        </div>
+
+            </form>
+</div>
+
+</body>
+</html>
