@@ -17,6 +17,12 @@ $audio_asset = null;
 $audio_analysis = null;
 $cbr_error = '';
 $submitted_poem_text = trim($_POST['poem_text'] ?? '');
+$survey_answers = [
+    'social_energy' => trim($_POST['social_energy'] ?? ''),
+    'information_style' => trim($_POST['information_style'] ?? ''),
+    'decision_style' => trim($_POST['decision_style'] ?? ''),
+    'work_style' => trim($_POST['work_style'] ?? ''),
+];
 $image_seed = filter_var($_POST['image_seed'] ?? null, FILTER_VALIDATE_INT);
 if ($image_seed === false || $image_seed === null) {
     $image_seed = random_int(1, 999999999);
@@ -473,6 +479,98 @@ function combineMbtiSignals($tbr, $cbr, $declaredMbti) {
     return mbtiFromAxes($axes);
 }
 
+function surveySignalsFromAnswers($answers) {
+    $mapping = [
+        'social_energy' => ['Quiet focus' => 'I', 'People and activity' => 'E'],
+        'information_style' => ['Facts and details' => 'S', 'Ideas and possibilities' => 'N'],
+        'decision_style' => ['Logic and fairness' => 'T', 'Feelings and harmony' => 'F'],
+        'work_style' => ['Plan first' => 'J', 'Stay flexible' => 'P'],
+    ];
+
+    $axes = [];
+    foreach ($mapping as $field => $options) {
+        $value = trim((string) ($answers[$field] ?? ''));
+        if (isset($options[$value])) {
+            $pair = array_values($options);
+            sort($pair);
+            $axisKey = $pair[0] . $pair[1];
+            if ($axisKey === 'EI') {
+                $axisKey = 'IE';
+            } elseif ($axisKey === 'NS') {
+                $axisKey = 'SN';
+            } elseif ($axisKey === 'FT') {
+                $axisKey = 'TF';
+            } elseif ($axisKey === 'JP') {
+                $axisKey = 'JP';
+            }
+            $axes[$axisKey] = $options[$value];
+        }
+    }
+
+    if (count($axes) < 4) {
+        return null;
+    }
+
+    $mbti = mbtiFromAxes($axes);
+    return [
+        'mbti' => $mbti,
+        'persona' => personaFromMbti($mbti),
+        'axes' => $axes,
+        'summary' => implode(', ', array_map(
+            static fn($field, $value) => $field . ': ' . $value,
+            array_keys($answers),
+            array_values($answers)
+        )),
+    ];
+}
+
+function combineAllSignals($tbr, $cbr, $survey, $declaredMbti) {
+    $scores = [
+        'I' => 0, 'E' => 0,
+        'S' => 0, 'N' => 0,
+        'T' => 0, 'F' => 0,
+        'J' => 0, 'P' => 0,
+    ];
+
+    if (!empty($tbr['axes'])) {
+        $scores[$tbr['axes']['IE']] += 2;
+        $scores[$tbr['axes']['SN']] += 2;
+        $scores[$tbr['axes']['TF']] += 1;
+        $scores[$tbr['axes']['JP']] += 1;
+    }
+
+    if (!empty($cbr['axes'])) {
+        $scores[$cbr['axes']['IE']] += 1;
+        $scores[$cbr['axes']['SN']] += 1;
+        $scores[$cbr['axes']['TF']] += 1;
+        $scores[$cbr['axes']['JP']] += 1;
+    }
+
+    if (!empty($survey['axes'])) {
+        $scores[$survey['axes']['IE']] += 4;
+        $scores[$survey['axes']['SN']] += 4;
+        $scores[$survey['axes']['TF']] += 4;
+        $scores[$survey['axes']['JP']] += 4;
+    }
+
+    $declaredMbti = strtoupper(trim((string) $declaredMbti));
+    if (preg_match('/^[EI][SN][TF][JP]$/', $declaredMbti)) {
+        $scores[$declaredMbti[0]] += 1;
+        $scores[$declaredMbti[1]] += 1;
+        $scores[$declaredMbti[2]] += 1;
+        $scores[$declaredMbti[3]] += 1;
+    }
+
+    $axes = [
+        'IE' => pickAxisLetter('I', $scores['I'], 'E', $scores['E'], 'I'),
+        'SN' => pickAxisLetter('S', $scores['S'], 'N', $scores['N'], 'N'),
+        'TF' => pickAxisLetter('T', $scores['T'], 'F', $scores['F'], 'F'),
+        'JP' => pickAxisLetter('J', $scores['J'], 'P', $scores['P'], 'P'),
+    ];
+
+    return mbtiFromAxes($axes);
+}
+
 function generatePodcast($finalMbti, $studentName, $personaType, $genre, $keywords, $declaredMbti) {
     $podcasts = [
         'INFP' => ['title' => 'The Quiet Dreamer', 'podcast' => 'The Introvert Hour'],
@@ -513,7 +611,7 @@ function generatePodcast($finalMbti, $studentName, $personaType, $genre, $keywor
     ];
 }
 
-function runAnalysis($conn, $student_id, $image_description, $audioAnalysis) {
+function runAnalysis($conn, $student_id, $image_description, $audioAnalysis, $surveyAnswers) {
     $stmt = $conn->prepare("SELECT name, mbti_type FROM student WHERE student_id = ?");
     $stmt->bind_param('s', $student_id);
     $stmt->execute();
@@ -535,6 +633,7 @@ function runAnalysis($conn, $student_id, $image_description, $audioAnalysis) {
     $mood = $audioAnalysis['estimated_mood'] ?? '';
     $tempo = $audioAnalysis['tempo_category'] ?? '';
     $energy = $audioAnalysis['energy_level'] ?? '';
+    $survey = surveySignalsFromAnswers($surveyAnswers);
 
     $cbr = null;
     if (!empty($audioAnalysis['ok']) && $genre && $mood && $tempo && $energy) {
@@ -546,8 +645,8 @@ function runAnalysis($conn, $student_id, $image_description, $audioAnalysis) {
         $cbr_mbti = 'N/A';
     }
 
-    if ($tbr || $cbr) {
-        $final_mbti = combineMbtiSignals($tbr ?? [], $cbr ?? [], $student['mbti_type'] ?? '');
+    if ($tbr || $cbr || $survey) {
+        $final_mbti = combineAllSignals($tbr ?? [], $cbr ?? [], $survey ?? [], $student['mbti_type'] ?? '');
     } else {
         $final_mbti = $student['mbti_type'] ?: 'INFP';
     }
@@ -618,19 +717,27 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $sid = trim($_POST['student_id'] ?? '');
     $desc = trim($_POST['image_description'] ?? '');
     $poem_text = trim($_POST['poem_text'] ?? '');
+    $survey_answers = [
+        'social_energy' => trim($_POST['social_energy'] ?? ''),
+        'information_style' => trim($_POST['information_style'] ?? ''),
+        'decision_style' => trim($_POST['decision_style'] ?? ''),
+        'work_style' => trim($_POST['work_style'] ?? ''),
+    ];
     $full_text = trim($desc . ' ' . $poem_text);
 
     if ($sid === '') {
         $error = 'Please select a student.';
     } elseif ($desc === '') {
         $error = 'Describe the random image before generating the TBR personality result.';
+    } elseif (in_array('', $survey_answers, true)) {
+        $error = 'Please answer the student preference questions before generating the analysis.';
     } else {
         if ($pdf_asset && $poem_text !== '') {
             $stmt = $conn->prepare("UPDATE multimedia_asset SET description = ? WHERE asset_id = ? AND student_id = ?");
             $stmt->bind_param('sis', $poem_text, $pdf_asset['asset_id'], $sid);
             $stmt->execute();
         }
-        $result_id = runAnalysis($conn, $sid, $full_text, $audio_analysis ?: []);
+        $result_id = runAnalysis($conn, $sid, $full_text, $audio_analysis ?: [], $survey_answers);
         if ($result_id) {
             header('Location: result.php?id=' . $result_id);
             exit;
@@ -651,7 +758,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 <?php if ($error): ?><div class="alert error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 <div class="info-box">
     <h4>How the analysis works</h4>
-    The system analyzes the student's image description, poem, and audio file to estimate personality tendencies. The result is generated based on content analysis and should be treated as an estimation rather than an actual MBTI diagnosis.
+    The system analyzes the student's image description, poem, audio file, and four short preference answers to estimate personality tendencies. The result is generated based on content analysis and should be treated as an estimation rather than an actual MBTI diagnosis.
 </div>
 
 <form method="POST">
@@ -759,6 +866,47 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 </section>
             <?php endif; ?>
         <?php endif; ?>
+    </section>
+
+    <section class="analysis-module abr">
+        <legend>Student Preference Check <span class="module-tag abr">Extra Signal</span></legend>
+
+        <div class="grid-2">
+            <div>
+                <label>Social Energy</label>
+                <select name="social_energy" required>
+                    <option value="">Select one</option>
+                    <option value="Quiet focus" <?= $survey_answers['social_energy'] === 'Quiet focus' ? 'selected' : '' ?>>Quiet focus</option>
+                    <option value="People and activity" <?= $survey_answers['social_energy'] === 'People and activity' ? 'selected' : '' ?>>People and activity</option>
+                </select>
+            </div>
+            <div>
+                <label>Information Style</label>
+                <select name="information_style" required>
+                    <option value="">Select one</option>
+                    <option value="Facts and details" <?= $survey_answers['information_style'] === 'Facts and details' ? 'selected' : '' ?>>Facts and details</option>
+                    <option value="Ideas and possibilities" <?= $survey_answers['information_style'] === 'Ideas and possibilities' ? 'selected' : '' ?>>Ideas and possibilities</option>
+                </select>
+            </div>
+        </div>
+        <div class="grid-2">
+            <div>
+                <label>Decision Style</label>
+                <select name="decision_style" required>
+                    <option value="">Select one</option>
+                    <option value="Logic and fairness" <?= $survey_answers['decision_style'] === 'Logic and fairness' ? 'selected' : '' ?>>Logic and fairness</option>
+                    <option value="Feelings and harmony" <?= $survey_answers['decision_style'] === 'Feelings and harmony' ? 'selected' : '' ?>>Feelings and harmony</option>
+                </select>
+            </div>
+            <div>
+                <label>Work Style</label>
+                <select name="work_style" required>
+                    <option value="">Select one</option>
+                    <option value="Plan first" <?= $survey_answers['work_style'] === 'Plan first' ? 'selected' : '' ?>>Plan first</option>
+                    <option value="Stay flexible" <?= $survey_answers['work_style'] === 'Stay flexible' ? 'selected' : '' ?>>Stay flexible</option>
+                </select>
+            </div>
+        </div>
     </section>
 
     <button class="btn" id="generate-analysis" type="submit">Generate Analysis</button>
