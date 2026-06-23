@@ -6,13 +6,12 @@ function activeLink($page, $currentPage) {
 
 $pages = [
     ['file' => 'index.php',     'label' => 'Dashboard',          'step' => '01'],
-    ['file' => 'upload.php',    'label' => 'Upload Multimedia',  'step' => '02'],
-    ['file' => 'analysis.php',  'label' => 'Analysis (TBR+CBR)', 'step' => '03'],
-    ['file' => 'result.php',    'label' => 'Result',             'step' => '04'],
+    ['file' => 'analysis.php',  'label' => 'Personality Analysis', 'step' => '02'],
+    ['file' => 'result.php',    'label' => 'Result',             'step' => '03'],
     ['file' => 'retrieval.php', 'label' => 'Retrieval',           'step' => ''],
 ];
 
-$stepMap = ['index.php' => '01', 'upload.php' => '02', 'analysis.php' => '03', 'result.php' => '04', 'retrieval.php' => ''];
+$stepMap = ['analysis.php' => '02', 'result.php' => '03', 'retrieval.php' => ''];
 $currentStep = $stepMap[$currentPage] ?? '';
 ?>
 <!DOCTYPE html>
@@ -21,7 +20,7 @@ $currentStep = $stepMap[$currentPage] ?? '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SonicSync | Multimedia MBTI Detection</title>
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=20260622-dashboard-3">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -53,7 +52,7 @@ $currentStep = $stepMap[$currentPage] ?? '';
 
         <div class="side-note">
             <span>GW08</span>
-            <p>TBR + CBR + ABR Multimedia Profiling</p>
+            <p>Multimedia Personality Profiling</p>
         </div>
     </aside>
 

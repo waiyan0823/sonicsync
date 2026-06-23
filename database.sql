@@ -1,5 +1,5 @@
-CREATE DATABASE IF NOT EXISTS sonicsync_db;
-USE sonicsync_db;
+CREATE DATABASE IF NOT EXISTS gw08;
+USE gw08;
 
 DROP TABLE IF EXISTS recommendation_result;
 DROP TABLE IF EXISTS audio_metadata;
@@ -41,6 +41,15 @@ CREATE TABLE audio_metadata (
     mood_type VARCHAR(50) DEFAULT '',
     lyrics_keywords TEXT,
     genre VARCHAR(50) DEFAULT '',
+    tempo_bpm DECIMAL(8,2) DEFAULT NULL,
+    rms_energy DECIMAL(10,6) DEFAULT NULL,
+    spectral_centroid DECIMAL(10,2) DEFAULT NULL,
+    zero_crossing_rate DECIMAL(10,6) DEFAULT NULL,
+    tempo_category VARCHAR(20) DEFAULT '',
+    personality_tendency VARCHAR(100) DEFAULT '',
+    audio_features_json TEXT,
+    analysis_status VARCHAR(255) DEFAULT '',
+    analyzed_at DATETIME DEFAULT NULL,
     FOREIGN KEY (asset_id) REFERENCES multimedia_asset(asset_id)
 );
 
@@ -48,6 +57,7 @@ CREATE TABLE recommendation_result (
     result_id INT AUTO_INCREMENT PRIMARY KEY,
     student_id VARCHAR(50) NOT NULL,
     audio_id INT DEFAULT NULL,
+    predicted_mbti VARCHAR(10) DEFAULT '',
     generated_persona VARCHAR(100) DEFAULT '',
     podcast_title VARCHAR(255) DEFAULT '',
     podcast_script TEXT,
@@ -74,7 +84,7 @@ INSERT INTO audio_metadata (asset_id, song_title, artist_or_creator, duration, e
 VALUES
 (2, 'Electric Dream', 'DJ Phoenix', 234, 'High', 'Energetic', 'party, crowd, rise, together', 'EDM');
 
-INSERT INTO recommendation_result (student_id, audio_id, generated_persona, podcast_title, podcast_script, recommended_song, recommended_podcast)
+INSERT INTO recommendation_result (student_id, audio_id, predicted_mbti, generated_persona, podcast_title, podcast_script, recommended_song, recommended_podcast)
 VALUES
-('B032410001', NULL, 'Authentic', 'The Quiet Dreamer', 'In this episode, we explore the mind of an INFP. Aisyah''s calm and reflective nature shines through her description of a peaceful sunset. Her declared INFP personality aligns with the system''s analysis, confirming an Authentic profile.', 'Sunset Lullaby', 'The Introvert Hour'),
-('B032410002', 1, 'Creative Deviation', 'The Electric Spirit', 'Raju declared ENFP but his uploaded EDM track suggests a bold, high-energy personality that leans toward creative deviation. His love for adventure and social connection is reflected in both his declared type and the system''s analysis.', 'Neon Nights', 'Extrovert Unleashed');
+('B032410001', NULL, 'INFP', 'Authentic', 'The Quiet Dreamer', 'In this episode, we explore the mind of an INFP. Aisyah''s calm and reflective nature shines through her description of a peaceful sunset. Her declared INFP personality aligns with the system''s analysis, confirming an Authentic profile.', 'Sunset Lullaby', 'The Introvert Hour'),
+('B032410002', 1, 'ENFP', 'Creative Deviation', 'The Electric Spirit', 'Raju declared ENFP but his uploaded EDM track suggests a bold, high-energy personality that leans toward creative deviation. His love for adventure and social connection is reflected in both his declared type and the system''s analysis.', 'Neon Nights', 'Extrovert Unleashed');
