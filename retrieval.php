@@ -29,7 +29,11 @@ $base_sql = "
     FROM student s
     LEFT JOIN multimedia_asset ma ON s.student_id = ma.student_id
     LEFT JOIN audio_metadata am ON ma.asset_id = am.asset_id
-    LEFT JOIN recommendation_result rr ON s.student_id = rr.student_id
+    LEFT JOIN recommendation_result rr ON rr.result_id = (
+        SELECT MAX(rr_latest.result_id)
+        FROM recommendation_result rr_latest
+        WHERE rr_latest.student_id = s.student_id
+    )
 ";
 
 $count_sql = "
@@ -37,7 +41,11 @@ $count_sql = "
     FROM student s
     LEFT JOIN multimedia_asset ma ON s.student_id = ma.student_id
     LEFT JOIN audio_metadata am ON ma.asset_id = am.asset_id
-    LEFT JOIN recommendation_result rr ON s.student_id = rr.student_id
+    LEFT JOIN recommendation_result rr ON rr.result_id = (
+        SELECT MAX(rr_latest.result_id)
+        FROM recommendation_result rr_latest
+        WHERE rr_latest.student_id = s.student_id
+    )
 ";
 
 if ($mode === 'abr' || $mode === 'all') {
@@ -132,6 +140,7 @@ $stmt->execute();
 $results = $stmt->get_result();
 ?>
 <?php include 'includes/header.php'; ?>
+<div class="retrieval-page">
 <section class="hero">
     <div>
         <h1>Retrieval</h1>
@@ -350,4 +359,5 @@ $results = $stmt->get_result();
     </div>
 </section>
 
+</div>
 <?php include 'includes/footer.php'; ?>

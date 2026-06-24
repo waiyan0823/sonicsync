@@ -2,6 +2,7 @@ CREATE DATABASE IF NOT EXISTS gw08;
 USE gw08;
 
 DROP TABLE IF EXISTS recommendation_result;
+DROP TABLE IF EXISTS image_prompt_bank;
 DROP TABLE IF EXISTS audio_metadata;
 DROP TABLE IF EXISTS multimedia_asset;
 DROP TABLE IF EXISTS student;
@@ -68,6 +69,14 @@ CREATE TABLE recommendation_result (
     FOREIGN KEY (audio_id) REFERENCES audio_metadata(audio_id)
 );
 
+CREATE TABLE image_prompt_bank (
+    image_id INT AUTO_INCREMENT PRIMARY KEY,
+    image_path VARCHAR(255) NOT NULL,
+    category VARCHAR(80) NOT NULL,
+    emotion_tag VARCHAR(80) NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
 INSERT INTO student (student_id, name, matric_no, phone_no, lab_group, mbti_type, life_value, preferred_podcast_tone)
 VALUES
 ('B032410001', 'Aisyah Abdullah', 'B032410001', '012-3456789', 'GW08', 'INFP', 'Creativity, Empathy', 'Inspirational'),
@@ -88,3 +97,10 @@ INSERT INTO recommendation_result (student_id, audio_id, predicted_mbti, generat
 VALUES
 ('B032410001', NULL, 'INFP', 'Authentic', 'The Quiet Dreamer', 'In this episode, we explore the mind of an INFP. Aisyah''s calm and reflective nature shines through her description of a peaceful sunset. Her declared INFP personality aligns with the system''s analysis, confirming an Authentic profile.', 'Sunset Lullaby', 'The Introvert Hour'),
 ('B032410002', 1, 'ENFP', 'Creative Deviation', 'The Electric Spirit', 'Raju declared ENFP but his uploaded EDM track suggests a bold, high-energy personality that leans toward creative deviation. His love for adventure and social connection is reflected in both his declared type and the system''s analysis.', 'Neon Nights', 'Extrovert Unleashed');
+
+INSERT INTO image_prompt_bank (image_path, category, emotion_tag, active) VALUES
+('assets/img/tbr/bench-alone.jpg', 'Solitude', 'Reflection', TRUE),
+('assets/img/tbr/crowded-station.jpg', 'Social', 'Anxiety', TRUE),
+('assets/img/tbr/forest-path.jpg', 'Nature', 'Peace', TRUE),
+('assets/img/tbr/rainy-window.jpg', 'Urban', 'Melancholy', TRUE),
+('assets/img/tbr/empty-playground.jpg', 'Abstract', 'Nostalgia', TRUE);

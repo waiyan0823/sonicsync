@@ -4,6 +4,29 @@ include 'includes/db.php';
 $result_id = $_GET['id'] ?? 0;
 $row = null;
 
+function mbtiCategory($mbti) {
+    $mbti = strtoupper(trim((string) $mbti));
+    if (!preg_match('/^[EI][SN][TF][JP]$/', $mbti)) {
+        return '';
+    }
+
+    $middle = substr($mbti, 1, 2);
+    if ($middle === 'NT') {
+        return 'Analyst';
+    }
+    if ($middle === 'NF') {
+        return 'Diplomat';
+    }
+    if ($mbti[1] === 'S' && $mbti[3] === 'J') {
+        return 'Sentinel';
+    }
+    if ($mbti[1] === 'S' && $mbti[3] === 'P') {
+        return 'Explorer';
+    }
+
+    return 'Balanced Profile';
+}
+
 if ($result_id) {
     $stmt = $conn->prepare("
         SELECT rr.*, s.name AS student_name, s.matric_no, s.mbti_type AS declared_mbti, s.lab_group,
@@ -55,34 +78,65 @@ if (!$row) {
     <a class="btn" href="analysis.php">Go to Analysis</a>
 </section>
 <?php else: ?>
-<section class="grid-4">
-    <div class="card">
-        <h3>Estimated MBTI Signal</h3>
-        <span class="result-badge"><?= htmlspecialchars($row['predicted_mbti'] ?: 'Not determined') ?></span>
-        <p class="small-text" style="margin-top:12px">Prototype signal from TBR, with CBR fallback when needed</p>
-    </div>
-    <div class="card">
-        <h3>Generated Persona</h3>
-        <span class="result-badge"><?= htmlspecialchars($row['generated_persona']) ?></span>
-        <p class="small-text" style="margin-top:12px">
-            <?php if ($row['generated_persona'] === 'Authentic'): ?>
-                The estimated signals <strong>align with</strong> the declared <?= htmlspecialchars($row['declared_mbti']) ?> profile.
-            <?php elseif ($row['generated_persona'] === 'Creative Deviation'): ?>
-                The estimated signals <strong>differ from</strong> the declared <?= htmlspecialchars($row['declared_mbti']) ?> profile.
-            <?php else: ?>
-                Persona could not be determined from available data.
+<?php
+    $declaredCategory = mbtiCategory($row['declared_mbti'] ?? '');
+    $estimatedCategory = mbtiCategory($row['predicted_mbti'] ?? '');
+    $declaredMbti = $row['declared_mbti'] ?: 'Not set';
+    $estimatedMbti = $row['predicted_mbti'] ?: 'Not determined';
+    $audioSummary = $row['genre']
+        ? trim(($row['genre'] ?: '-') . ' / ' . ($row['energy_level'] ?: '-') . ' / ' . ($row['mood_type'] ?: '-'))
+        : 'No audio data';
+    $alignmentText = 'Persona could not be determined from available data.';
+    if ($row['generated_persona'] === 'Authentic') {
+        $alignmentText = 'Estimated signals align with the declared profile.';
+    } elseif ($row['generated_persona'] === 'Creative Deviation') {
+        $alignmentText = 'Estimated signals differ from the declared profile.';
+    }
+?>
+<section class="result-clean-summary">
+    <article class="result-profile-card">
+        <span class="metric-label">Estimated MBTI</span>
+        <h2><?= htmlspecialchars($estimatedMbti) ?></h2>
+        <div class="result-profile-types">
+            <span>Declared <strong><?= htmlspecialchars($declaredMbti) ?></strong></span>
+            <?php if ($estimatedCategory): ?>
+                <span>Category <strong><?= htmlspecialchars($estimatedCategory) ?></strong></span>
             <?php endif; ?>
-        </p>
-    </div>
-    <div class="card">
-        <h3>Declared MBTI</h3>
-        <span class="result-badge"><?= htmlspecialchars($row['declared_mbti'] ?: 'Not set') ?></span>
-        <p class="small-text" style="margin-top:12px">Self-reported by student</p>
-    </div>
-    <div class="card">
-        <h3>Podcast</h3>
-        <span class="result-badge"><?= htmlspecialchars($row['podcast_title']) ?></span>
-        <p class="small-text" style="margin-top:12px"><?= htmlspecialchars($row['recommended_podcast']) ?></p>
+        </div>
+        <p><?= htmlspecialchars($alignmentText) ?></p>
+    </article>
+
+    <div class="result-facts-grid">
+        <div class="result-fact">
+            <span class="metric-label">Student</span>
+            <strong><?= htmlspecialchars($row['student_name']) ?></strong>
+            <small><?= htmlspecialchars($row['matric_no']) ?> | <?= htmlspecialchars($row['lab_group']) ?></small>
+        </div>
+        <div class="result-fact">
+            <span class="metric-label">Persona</span>
+            <strong><?= htmlspecialchars($row['generated_persona'] ?: '-') ?></strong>
+            <small><?= htmlspecialchars($estimatedCategory ? $estimatedCategory . ' signal' : 'Estimated signal') ?></small>
+        </div>
+        <div class="result-fact">
+            <span class="metric-label">Podcast</span>
+            <strong><?= htmlspecialchars($row['podcast_title'] ?: '-') ?></strong>
+            <small><?= htmlspecialchars($row['recommended_podcast'] ?: '-') ?></small>
+        </div>
+        <div class="result-fact">
+            <span class="metric-label">Song</span>
+            <strong><?= htmlspecialchars($row['recommended_song'] ?: '-') ?></strong>
+            <small>Recommendation output</small>
+        </div>
+        <div class="result-fact">
+            <span class="metric-label">Audio</span>
+            <strong><?= htmlspecialchars($audioSummary) ?></strong>
+            <small><?= htmlspecialchars($row['personality_tendency'] ?: 'CBR not available') ?></small>
+        </div>
+        <div class="result-fact">
+            <span class="metric-label">Generated</span>
+            <strong><?= htmlspecialchars($row['generated_date'] ?: '-') ?></strong>
+            <small>Latest saved result</small>
+        </div>
     </div>
 </section>
 
@@ -93,55 +147,27 @@ if (!$row) {
     </div>
 </section>
 
-<section class="grid-3">
-    <div class="card">
-        <h3>Recommended Song</h3>
-        <span class="result-badge"><?= htmlspecialchars($row['recommended_song']) ?></span>
-    </div>
-    <div class="card">
-        <h3>Student</h3>
-        <p><?= htmlspecialchars($row['student_name']) ?></p>
-        <p class="small-text"><?= htmlspecialchars($row['matric_no']) ?> | <?= htmlspecialchars($row['lab_group']) ?></p>
-    </div>
-    <div class="card">
-        <h3>Uploaded File</h3>
-        <p><?= htmlspecialchars($row['file_name']) ?></p>
-        <p class="small-text"><?= htmlspecialchars($row['media_category']) ?></p>
-    </div>
-</section>
-
 <?php if ($row['genre']): ?>
 <section class="table-card">
-    <h2>Audio Content Features (CBR Input)</h2>
-    <div class="grid-3">
-        <div><strong>Estimated Genre:</strong> <?= htmlspecialchars($row['genre']) ?></div>
-        <div><strong>Estimated Energy:</strong> <?= htmlspecialchars($row['energy_level']) ?></div>
-        <div><strong>Estimated Mood:</strong> <?= htmlspecialchars($row['mood_type']) ?></div>
+    <h2>Audio Content Features</h2>
+    <div class="audio-feature-grid">
+        <div><span class="metric-label">Tempo</span><strong><?= htmlspecialchars((string) $row['tempo_bpm']) ?> BPM</strong><small><?= htmlspecialchars($row['tempo_category'] ?? '-') ?></small></div>
+        <div><span class="metric-label">RMS Energy</span><strong><?= htmlspecialchars((string) $row['rms_energy']) ?></strong><small><?= htmlspecialchars($row['energy_level']) ?></small></div>
+        <div><span class="metric-label">Spectral Centroid</span><strong><?= htmlspecialchars((string) $row['spectral_centroid']) ?> Hz</strong><small><?= htmlspecialchars($row['genre']) ?></small></div>
+        <div><span class="metric-label">Zero Crossing</span><strong><?= htmlspecialchars((string) $row['zero_crossing_rate']) ?></strong><small><?= htmlspecialchars($row['mood_type']) ?></small></div>
     </div>
-    <table style="margin-top:16px;">
-        <tr><th>Tempo</th><td><?= htmlspecialchars((string) $row['tempo_bpm']) ?> BPM (<?= htmlspecialchars($row['tempo_category'] ?? '') ?>)</td></tr>
-        <tr><th>RMS Energy</th><td><?= htmlspecialchars((string) $row['rms_energy']) ?></td></tr>
-        <tr><th>Spectral Centroid</th><td><?= htmlspecialchars((string) $row['spectral_centroid']) ?> Hz</td></tr>
-        <tr><th>Zero Crossing Rate</th><td><?= htmlspecialchars((string) $row['zero_crossing_rate']) ?></td></tr>
-        <tr><th>CBR Personality Tendency</th><td><?= htmlspecialchars($row['personality_tendency'] ?? '') ?></td></tr>
-    </table>
     <p class="small-text">CBR is estimated from audio signal features and is not an accurate MBTI diagnosis.</p>
 </section>
 <?php endif; ?>
 
 <section class="table-card">
-    <h2>Result Details</h2>
-    <table>
-        <tr><th>Student ID</th><td><?= htmlspecialchars($row['student_id']) ?></td></tr>
-        <tr><th>Student Name</th><td><?= htmlspecialchars($row['student_name']) ?></td></tr>
-        <tr><th>Declared MBTI</th><td><?= htmlspecialchars($row['declared_mbti'] ?: 'Not set') ?></td></tr>
-        <tr><th>Estimated MBTI Signal</th><td><?= htmlspecialchars($row['predicted_mbti'] ?: 'Not determined') ?></td></tr>
-        <tr><th>Generated Persona</th><td><?= htmlspecialchars($row['generated_persona']) ?></td></tr>
-        <tr><th>Podcast Title</th><td><?= htmlspecialchars($row['podcast_title']) ?></td></tr>
-        <tr><th>Recommended Song</th><td><?= htmlspecialchars($row['recommended_song']) ?></td></tr>
-        <tr><th>Recommended Podcast</th><td><?= htmlspecialchars($row['recommended_podcast']) ?></td></tr>
-        <tr><th>Generated At</th><td><?= htmlspecialchars($row['generated_date']) ?></td></tr>
-    </table>
+    <h2>Record Details</h2>
+    <div class="record-detail-list">
+        <div><span>Student ID</span><strong><?= htmlspecialchars($row['student_id']) ?></strong></div>
+        <div><span>Evidence File</span><strong class="truncate-text" title="<?= htmlspecialchars($row['file_name'] ?: '-') ?>"><?= htmlspecialchars($row['file_name'] ?: '-') ?></strong></div>
+        <div><span>Media Category</span><strong><?= htmlspecialchars($row['media_category'] ?: '-') ?></strong></div>
+        <div><span>Result ID</span><strong>#<?= htmlspecialchars((string) $row['result_id']) ?></strong></div>
+    </div>
 </section>
 <?php endif; ?>
 <?php include 'includes/footer.php'; ?>

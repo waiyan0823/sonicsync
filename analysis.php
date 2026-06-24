@@ -17,16 +17,16 @@ $audio_asset = null;
 $audio_analysis = null;
 $cbr_error = '';
 $submitted_poem_text = trim($_POST['poem_text'] ?? '');
+$visual_detail = trim($_POST['visual_detail'] ?? '');
+$core_emotions = trim($_POST['core_emotions'] ?? '');
+$imagined_backstory = trim($_POST['imagined_backstory'] ?? '');
 $survey_answers = [
     'social_energy' => trim($_POST['social_energy'] ?? ''),
     'information_style' => trim($_POST['information_style'] ?? ''),
     'decision_style' => trim($_POST['decision_style'] ?? ''),
     'work_style' => trim($_POST['work_style'] ?? ''),
 ];
-$image_seed = filter_var($_POST['image_seed'] ?? null, FILTER_VALIDATE_INT);
-if ($image_seed === false || $image_seed === null) {
-    $image_seed = random_int(1, 999999999);
-}
+$selected_prompt_id = filter_var($_POST['image_prompt_id'] ?? null, FILTER_VALIDATE_INT);
 
 function dbColumnExists($conn, $table, $column) {
     if (!preg_match('/^[A-Za-z0-9_]+$/', $table) || !preg_match('/^[A-Za-z0-9_]+$/', $column)) {
@@ -56,6 +56,67 @@ function ensureAudioFeatureColumns($conn) {
             $conn->query($sql);
         }
     }
+}
+
+function ensureImagePromptBank($conn) {
+    $conn->query("
+        CREATE TABLE IF NOT EXISTS image_prompt_bank (
+            image_id INT AUTO_INCREMENT PRIMARY KEY,
+            image_path VARCHAR(255) NOT NULL,
+            category VARCHAR(80) NOT NULL,
+            emotion_tag VARCHAR(80) NOT NULL,
+            active BOOLEAN NOT NULL DEFAULT TRUE
+        )
+    ");
+
+    $result = $conn->query("SELECT COUNT(*) AS total FROM image_prompt_bank");
+    $total = $result ? (int) ($result->fetch_assoc()['total'] ?? 0) : 0;
+    if ($total > 0) {
+        return;
+    }
+
+    $seedPrompts = [
+        ['assets/img/tbr/bench-alone.jpg', 'Solitude', 'Reflection'],
+        ['assets/img/tbr/crowded-station.jpg', 'Social', 'Anxiety'],
+        ['assets/img/tbr/forest-path.jpg', 'Nature', 'Peace'],
+        ['assets/img/tbr/rainy-window.jpg', 'Urban', 'Melancholy'],
+        ['assets/img/tbr/empty-playground.jpg', 'Abstract', 'Nostalgia'],
+    ];
+
+    $stmt = $conn->prepare("INSERT INTO image_prompt_bank (image_path, category, emotion_tag, active) VALUES (?, ?, ?, TRUE)");
+    foreach ($seedPrompts as $prompt) {
+        $stmt->bind_param('sss', $prompt[0], $prompt[1], $prompt[2]);
+        $stmt->execute();
+    }
+    $stmt->close();
+}
+
+function fetchTbrPrompt($conn, $image_id = null) {
+    if ($image_id) {
+        $stmt = $conn->prepare("SELECT image_id, image_path, category, emotion_tag FROM image_prompt_bank WHERE image_id = ? AND active = TRUE LIMIT 1");
+        $stmt->bind_param('i', $image_id);
+        $stmt->execute();
+        $prompt = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if ($prompt) {
+            return $prompt;
+        }
+    }
+
+    $countResult = $conn->query("SELECT COUNT(*) AS total FROM image_prompt_bank WHERE active = TRUE");
+    $total = $countResult ? (int) ($countResult->fetch_assoc()['total'] ?? 0) : 0;
+    if ($total <= 0) {
+        return null;
+    }
+
+    $offset = random_int(0, $total - 1);
+    $stmt = $conn->prepare("SELECT image_id, image_path, category, emotion_tag FROM image_prompt_bank WHERE active = TRUE ORDER BY image_id LIMIT 1 OFFSET ?");
+    $stmt->bind_param('i', $offset);
+    $stmt->execute();
+    $prompt = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    return $prompt;
 }
 
 function audioDisplayUrl($filePath) {
@@ -611,6 +672,52 @@ function generatePodcast($finalMbti, $studentName, $personaType, $genre, $keywor
     ];
 }
 
+function saveRecommendationResult($conn, $student_id, $audio_id, $final_mbti, $persona_type, $podcast) {
+    $stmt = $conn->prepare("SELECT result_id FROM recommendation_result WHERE student_id = ? ORDER BY result_id DESC LIMIT 1");
+    $stmt->bind_param('s', $student_id);
+    $stmt->execute();
+    $existing = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($existing) {
+        $result_id = (int) $existing['result_id'];
+        $stmt = $conn->prepare("
+            UPDATE recommendation_result
+            SET audio_id = ?, predicted_mbti = ?, generated_persona = ?, podcast_title = ?,
+                podcast_script = ?, recommended_song = ?, recommended_podcast = ?, generated_date = NOW()
+            WHERE result_id = ?
+        ");
+        $stmt->bind_param(
+            'issssssi',
+            $audio_id,
+            $final_mbti,
+            $persona_type,
+            $podcast['podcast_title'],
+            $podcast['podcast_script'],
+            $podcast['recommended_song'],
+            $podcast['recommended_podcast'],
+            $result_id
+        );
+        $stmt->execute();
+        $stmt->close();
+
+        $stmt = $conn->prepare("DELETE FROM recommendation_result WHERE student_id = ? AND result_id <> ?");
+        $stmt->bind_param('si', $student_id, $result_id);
+        $stmt->execute();
+        $stmt->close();
+
+        return $result_id;
+    }
+
+    $stmt = $conn->prepare("INSERT INTO recommendation_result (student_id, audio_id, predicted_mbti, generated_persona, podcast_title, podcast_script, recommended_song, recommended_podcast) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param('sissssss', $student_id, $audio_id, $final_mbti, $persona_type, $podcast['podcast_title'], $podcast['podcast_script'], $podcast['recommended_song'], $podcast['recommended_podcast']);
+    $stmt->execute();
+    $result_id = $conn->insert_id;
+    $stmt->close();
+
+    return $result_id;
+}
+
 function runAnalysis($conn, $student_id, $image_description, $audioAnalysis, $surveyAnswers) {
     $stmt = $conn->prepare("SELECT name, mbti_type FROM student WHERE student_id = ?");
     $stmt->bind_param('s', $student_id);
@@ -669,14 +776,19 @@ function runAnalysis($conn, $student_id, $image_description, $audioAnalysis, $su
         $stmt->execute();
     }
 
-    $stmt = $conn->prepare("INSERT INTO recommendation_result (student_id, audio_id, predicted_mbti, generated_persona, podcast_title, podcast_script, recommended_song, recommended_podcast) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param('sissssss', $student_id, $audio_id, $final_mbti, $persona_type, $podcast['podcast_title'], $podcast['podcast_script'], $podcast['recommended_song'], $podcast['recommended_podcast']);
-    $stmt->execute();
-
-    return $conn->insert_id;
+    return saveRecommendationResult($conn, $student_id, $audio_id, $final_mbti, $persona_type, $podcast);
 }
 
 ensureAudioFeatureColumns($conn);
+ensureImagePromptBank($conn);
+$tbr_prompt = fetchTbrPrompt($conn, $selected_prompt_id);
+$tbr_image_src = '';
+if ($tbr_prompt) {
+    $tbr_image_src = $tbr_prompt['image_path'];
+    if (!preg_match('/^https?:\/\//i', $tbr_image_src) && !is_file(__DIR__ . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $tbr_image_src))) {
+        $tbr_image_src = 'random_tbr_image.php?seed=' . (int) $tbr_prompt['image_id'];
+    }
+}
 
 // Load the selected student's lecturer media for review before analysis.
 if ($selected_student_id) {
@@ -715,7 +827,16 @@ if ($selected_student_id) {
 // Manual form submission
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $sid = trim($_POST['student_id'] ?? '');
-    $desc = trim($_POST['image_description'] ?? '');
+    $visual_detail = trim($_POST['visual_detail'] ?? '');
+    $core_emotions = trim($_POST['core_emotions'] ?? '');
+    $imagined_backstory = trim($_POST['imagined_backstory'] ?? '');
+    $legacy_desc = trim($_POST['image_description'] ?? '');
+    $desc = trim(
+        "Detailed observation: $visual_detail\n" .
+        "Core emotions: $core_emotions\n" .
+        "Imagined backstory: $imagined_backstory\n" .
+        $legacy_desc
+    );
     $poem_text = trim($_POST['poem_text'] ?? '');
     $survey_answers = [
         'social_energy' => trim($_POST['social_energy'] ?? ''),
@@ -727,8 +848,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if ($sid === '') {
         $error = 'Please select a student.';
-    } elseif ($desc === '') {
-        $error = 'Describe the random image before generating the TBR personality result.';
+    } elseif ($visual_detail === '' || $core_emotions === '' || $imagined_backstory === '') {
+        $error = 'Please answer all three TBR image prompt questions before generating the analysis.';
     } elseif (in_array('', $survey_answers, true)) {
         $error = 'Please answer the student preference questions before generating the analysis.';
     } else {
@@ -777,23 +898,52 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     <section class="analysis-module tbr">
         <legend>TBR Analysis <span class="module-tag tbr">Text-Based Retrieval</span></legend>
-        <h3>Random Image Description <span class="module-tag tbr">Required</span></h3>
-        <p class="small-text">Look at the generated image and describe what you see, feel, or imagine. TBR analyzes only the words the student writes, not the image pixels.</p>
-        <div class="analysis-layout">
-            <div class="image-box">
-                <img id="tbr-random-image" src="random_tbr_image.php?seed=<?= (int) $image_seed ?>" alt="Random visual prompt for student description">
-                <button class="btn secondary" id="new-random-image" type="button" style="width:100%;margin:0;border-radius:0;">Generate Another Image</button>
-            </div>
+        <h3>Describe Image <span class="module-tag tbr">Required</span></h3>
+        <p class="small-text">Observe the selected real-world image and respond to the prompts. TBR analyzes the student's written interpretation, not the image pixels.</p>
+
+        <?php if (!$tbr_prompt): ?>
+            <div class="alert error">No active image prompts are available. Add records to the image_prompt_bank table first.</div>
+        <?php else: ?>
+        <div class="tbr-prompt-layout">
             <div>
-                <label for="image-description">Student's Manual Description</label>
-                <textarea id="image-description" name="image_description" required minlength="10" placeholder="Example: This scene feels calm and peaceful. It makes me reflect quietly about the future."><?= htmlspecialchars($_POST['image_description'] ?? '') ?></textarea>
-                <input id="image-seed" type="hidden" name="image_seed" value="<?= (int) $image_seed ?>">
-                <p class="small-text">Write at least one complete sentence. The description is the main TBR input used to estimate a personality signal.</p>
+                <div class="image-box tbr-image-box">
+                    <img
+                        id="tbr-prompt-image"
+                        src="<?= htmlspecialchars($tbr_image_src) ?>"
+                        alt="TBR projective image prompt"
+                    >
+                </div>
+                <div class="tbr-context-card">
+                    <div>
+                        <span class="small-text">Image Prompt #<?= (int) $tbr_prompt['image_id'] ?></span>
+                        <h4><?= htmlspecialchars($tbr_prompt['category']) ?></h4>
+                    </div>
+                    <div>
+                        <span class="small-text">Emotion Tag</span>
+                        <h4><?= htmlspecialchars($tbr_prompt['emotion_tag']) ?></h4>
+                    </div>
+                    <p><strong>Purpose:</strong> To observe how users project internal emotional states onto visual situations.</p>
+                    <button class="btn secondary" type="button" data-bs-toggle="modal" data-bs-target="#tbrImageModal">View Full Image</button>
+                </div>
+                <input type="hidden" name="image_prompt_id" value="<?= (int) $tbr_prompt['image_id'] ?>">
+            </div>
+
+            <div class="tbr-question-card">
+                <label for="visual-detail">1. Describe what you see in detail.</label>
+                <textarea id="visual-detail" name="visual_detail" required minlength="10" placeholder="Describe objects, people, setting, lighting, and visual details."><?= htmlspecialchars($visual_detail) ?></textarea>
+
+                <label for="core-emotions">2. What core emotions does this scene evoke for you?</label>
+                <textarea id="core-emotions" name="core_emotions" required minlength="5" placeholder="Explain the emotional response this scene creates."><?= htmlspecialchars($core_emotions) ?></textarea>
+
+                <label for="imagined-backstory">3. What backstory do you imagine leading up to this exact moment?</label>
+                <textarea id="imagined-backstory" name="imagined_backstory" required minlength="10" placeholder="Imagine what happened before this moment and why the scene feels this way."><?= htmlspecialchars($imagined_backstory) ?></textarea>
             </div>
         </div>
+        <?php endif; ?>
+
         <h3>Student Poem <span class="module-tag tbr">Optional Support</span></h3>
         <?php if (!$selected_student_id): ?>
-            <p class="small-text">Select a student above. Their lecturer-uploaded poem will appear here automatically.</p>
+            <p class="small-text">Select a student above. Their poem will appear here automatically.</p>
         <?php elseif (!$pdf_asset): ?>
             <div class="alert error">No poem PDF was found for this student. Choose another student or upload a PDF first.</div>
             <label for="poem-text">Poem Text</label>
@@ -912,19 +1062,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     <button class="btn" id="generate-analysis" type="submit">Generate Analysis</button>
 </form>
 
+<?php if ($tbr_prompt): ?>
+<div class="modal fade" id="tbrImageModal" tabindex="-1" aria-labelledby="tbrImageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content tbr-modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tbrImageModalLabel">
+                    Image Prompt #<?= (int) $tbr_prompt['image_id'] ?> - <?= htmlspecialchars($tbr_prompt['category']) ?>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <img src="<?= htmlspecialchars($tbr_image_src) ?>" alt="Full TBR projective prompt" class="tbr-modal-image">
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.getElementById('analysis-student-select').addEventListener('change', function () {
     window.location.href = this.value
         ? `analysis.php?student_id=${encodeURIComponent(this.value)}`
         : 'analysis.php';
-});
-
-document.getElementById('new-random-image').addEventListener('click', function () {
-    const seed = Math.floor(Math.random() * 999999999) + 1;
-    document.getElementById('image-seed').value = seed;
-    document.getElementById('tbr-random-image').src = `random_tbr_image.php?seed=${seed}`;
-    document.getElementById('image-description').value = '';
-    document.getElementById('image-description').focus();
 });
 </script>
 
