@@ -62,8 +62,8 @@ $stmt->close();
     </div>
 
     <div class="group-actions">
-        <a class="btn" href="analysis.php">Start Personality Analysis</a>
-        <a class="btn secondary" href="index.php">Back to Dashboard</a>
+        <a class="btn" href="<?= appLink('analysis.php', $groupCode) ?>">Start Personality Analysis</a>
+        <a class="btn secondary" href="<?= htmlspecialchars($lecturerDashboardUrl, ENT_QUOTES, 'UTF-8') ?>">Back to Dashboard</a>
     </div>
 </section>
 

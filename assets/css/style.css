@@ -91,6 +91,17 @@ body {
     background: rgba(180,92,255,0.16);
     box-shadow: 0 0 22px rgba(180,92,255,0.18);
 }
+.menu a.lecturer-dashboard-link {
+    margin-top: 10px;
+    border-color: rgba(50,213,131,0.34);
+    background: rgba(50,213,131,0.1);
+    color: #d1fadf;
+}
+.menu a.lecturer-dashboard-link:hover {
+    border-color: rgba(50,213,131,0.62);
+    background: rgba(50,213,131,0.16);
+    box-shadow: 0 0 22px rgba(50,213,131,0.16);
+}
 
 .side-note {
     flex: 0 0 auto;

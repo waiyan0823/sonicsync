@@ -111,7 +111,7 @@ function lecturerFileName(string $url): string
 function lecturerViewAvailable(mysqli $conn): bool
 {
     try {
-        $result = $conn->query('SELECT 1 FROM mmdb2026.vstu LIMIT 1');
+        $result = $conn->query('SELECT 1 FROM vstu LIMIT 1');
         $available = $result !== false;
         if ($result instanceof mysqli_result) {
             $result->free();
@@ -140,7 +140,7 @@ function lecturerProfilesFromView(mysqli $conn, string $scope = 'all', int $limi
 {
     $sql = 'SELECT id, matric_no, full_name, phone_no, group_no, life_motto,
                    photoStu, docStu, audioStu, videoStu
-            FROM mmdb2026.vstu';
+            FROM vstu';
     if ($scope !== 'all') {
         $sql .= ' WHERE group_no = ?';
     }
@@ -303,7 +303,7 @@ function syncLecturerData(mysqli $conn, string $scope = 'all', int $limit = 0): 
 
     $profiles = lecturerProfilesFromView($conn, $scope, $limit);
     $stats = [
-        'source' => 'mmdb2026.vstu',
+        'source' => 'gw08.vstu',
         'discovered' => count($profiles),
         'imported' => 0,
         'skipped' => 0,

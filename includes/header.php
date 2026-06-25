@@ -4,6 +4,13 @@ function activeLink($page, $currentPage) {
     return $page === $currentPage ? 'active' : '';
 }
 
+$groupCode = isset($_GET['group']) ? preg_replace('/[^a-zA-Z0-9]/', '', $_GET['group']) : 'GW08';
+$lecturerDashboardUrl = 'https://bitp3353.utem.edu.my/2026/all/dashboard.php?group=' . rawurlencode($groupCode);
+
+function appLink(string $file, string $groupCode): string {
+    return htmlspecialchars($file . '?group=' . rawurlencode($groupCode), ENT_QUOTES, 'UTF-8');
+}
+
 $pages = [
     ['file' => 'index.php',     'label' => 'Dashboard',          'step' => '01'],
     ['file' => 'analysis.php',  'label' => 'Personality Analysis', 'step' => '02'],
@@ -43,19 +50,20 @@ $currentStep = $stepMap[$currentPage] ?? '';
         <nav class="menu">
             <?php foreach ($pages as $p): ?>
                 <?php if ($p['step']): ?>
-                    <a class="<?= activeLink($p['file'], $currentPage) ?>" href="<?= $p['file'] ?>">
+                    <a class="<?= activeLink($p['file'], $currentPage) ?>" href="<?= appLink($p['file'], $groupCode) ?>">
                         <span class="step-badge"><?= $p['step'] ?></span><?= $p['label'] ?>
                     </a>
                 <?php else: ?>
-                    <a class="<?= activeLink($p['file'], $currentPage) ?>" href="<?= $p['file'] ?>">
+                    <a class="<?= activeLink($p['file'], $currentPage) ?>" href="<?= appLink($p['file'], $groupCode) ?>">
                         <?= $p['label'] ?>
                     </a>
                 <?php endif; ?>
             <?php endforeach; ?>
+            <a class="lecturer-dashboard-link" href="<?= htmlspecialchars($lecturerDashboardUrl, ENT_QUOTES, 'UTF-8') ?>">Back to Lecturer Dashboard</a>
         </nav>
 
         <div class="side-note">
-            <span>GW08</span>
+            <span><?= htmlspecialchars($groupCode) ?></span>
             <p>Multimedia Personality Profiling</p>
         </div>
     </aside>

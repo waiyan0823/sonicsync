@@ -182,7 +182,7 @@ function findStudentAudioAsset($conn, $student_id) {
 
 function importAudioFromVstu($conn, $student_id) {
     try {
-        $columnsResult = $conn->query("SHOW COLUMNS FROM `mmdb2026`.`vstu`");
+        $columnsResult = $conn->query("SHOW COLUMNS FROM `vstu`");
     } catch (mysqli_sql_exception $e) {
         return null;
     }
@@ -224,7 +224,7 @@ function importAudioFromVstu($conn, $student_id) {
         return null;
     }
 
-    $sql = "SELECT `$audioColumn` AS audio_path FROM `mmdb2026`.`vstu` WHERE `$studentColumn` = ? LIMIT 1";
+    $sql = "SELECT `$audioColumn` AS audio_path FROM `vstu` WHERE `$studentColumn` = ? LIMIT 1";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param('s', $student_id);
     $stmt->execute();
@@ -241,7 +241,7 @@ function importAudioFromVstu($conn, $student_id) {
     $fileType = strtolower(pathinfo($fileName, PATHINFO_EXTENSION)) ?: 'mp3';
     $fileSize = 0;
 
-    $insertAsset = $conn->prepare("INSERT INTO multimedia_asset (student_id, file_name, file_type, file_size, file_path, description, tags, media_category) VALUES (?, ?, ?, ?, ?, 'Imported from mmdb2026.vstu for CBR analysis', 'vstu,audio,cbr', 'Audio')");
+    $insertAsset = $conn->prepare("INSERT INTO multimedia_asset (student_id, file_name, file_type, file_size, file_path, description, tags, media_category) VALUES (?, ?, ?, ?, ?, 'Imported from gw08.vstu for CBR analysis', 'vstu,audio,cbr', 'Audio')");
     $insertAsset->bind_param('sssis', $student_id, $fileName, $fileType, $fileSize, $audioPath);
     $insertAsset->execute();
     $assetId = $insertAsset->insert_id;
@@ -968,7 +968,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         <?php if (!$selected_student_id): ?>
             <p class="small-text">Select a student above to load their audio file for CBR analysis.</p>
         <?php elseif (!$audio_asset): ?>
-            <div class="alert error">No audio file was found for this student in the multimedia table or mmdb2026.vstu.</div>
+            <div class="alert error">No audio file was found for this student in the multimedia table or gw08.vstu.</div>
         <?php else: ?>
             <div class="table-card" style="margin-bottom:16px;">
                 <h2>Retrieved Audio File</h2>
