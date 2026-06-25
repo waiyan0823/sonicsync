@@ -297,13 +297,14 @@ function syncLecturerPortal(mysqli $conn, string $scope = 'all', int $limit = 0)
 
 function syncLecturerData(mysqli $conn, string $scope = 'all', int $limit = 0): array
 {
-    if (!lecturerViewAvailable($conn)) {
+    $vstuConn = function_exists('getVstuConnection') ? getVstuConnection() : null;
+    if (!$vstuConn || !lecturerViewAvailable($vstuConn)) {
         return syncLecturerPortal($conn, $scope, $limit);
     }
 
-    $profiles = lecturerProfilesFromView($conn, $scope, $limit);
+    $profiles = lecturerProfilesFromView($vstuConn, $scope, $limit);
     $stats = [
-        'source' => 'gw08.vstu',
+        'source' => 'mmdb2026.vstu',
         'discovered' => count($profiles),
         'imported' => 0,
         'skipped' => 0,
