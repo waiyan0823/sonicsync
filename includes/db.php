@@ -1,7 +1,37 @@
 <?php
+$isLecturerServer = stripos($_SERVER["HTTP_HOST"] ?? "", "bitp3353.utem.edu.my") !== false;
+
 $defaultConfig = [
-    'APP_DB' => ['host' => 'localhost', 'user' => 'root', 'password' => '', 'database' => 'gw08', 'port' => 3306],
-    'VSTU_DB' => ['host' => 'localhost', 'user' => 'root', 'password' => '', 'database' => 'mmdb2026', 'port' => 3306],
+    "APP_DB" => $isLecturerServer
+        ? [
+            "host" => "127.0.0.1",
+            "user" => "GW08",
+            "password" => "MBTI",
+            "database" => "gw08",
+            "port" => 3306
+        ]
+        : [
+            "host" => "localhost",
+            "user" => "root",
+            "password" => "",
+            "database" => "gw08",
+            "port" => 3306
+        ],
+    "VSTU_DB" => $isLecturerServer
+        ? [
+            "host" => "127.0.0.1",
+            "user" => "GW08",
+            "password" => "MBTI",
+            "database" => "mmdb2026",
+            "port" => 3306
+        ]
+        : [
+            "host" => "localhost",
+            "user" => "root",
+            "password" => "",
+            "database" => "mmdb2026",
+            "port" => 3306
+        ],
 ];
 $config = $defaultConfig;
 $localConfigPath = __DIR__ . '/db.local.php';
